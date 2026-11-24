@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "997330015372",
+    "project_id": "pharmshop-ff7c1",
+    "storage_bucket": "pharmshop-ff7c1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:997330015372:android:80cf44de97cd6c062397a9",
+        "android_client_info": {
+          "package_name": "ru.pharmshop.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA9a6vrZ_qTfMcWZNxUe8Ft0GumhkNg2Zg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

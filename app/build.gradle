@@ -1,0 +1,80 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+// Push через Firebase включаются, только если рядом лежит app/google-services.json (см. server/README.md → «Мгновенные push»).
+// Без этого файла приложение собирается как обычно и получает уведомления фоновым опросом.
+if (file('google-services.json').exists()) {
+    apply plugin: 'com.google.gms.google-services'
+}
+
+// Сборка из ветки test (APP_VARIANT=test) — отдельное приложение «PharmShop Test» без автообновления.
+def isTest = System.getenv('APP_VARIANT') == 'test'
+
+android {
+    namespace 'ru.pharmshop.app'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'ru.pharmshop.app'
+        minSdk 24
+        targetSdk 34
+        // В GitHub Actions versionCode растёт сам (номер запуска + 100), локально — 2.
+        def run = System.getenv('GITHUB_RUN_NUMBER')
+        versionCode run ? run.toInteger() + 100 : 2
+        versionName project.findProperty('appVersion') ?: '1.0.8-stable'   // название версии задаётся в gradle.properties
+        // Репозиторий для проверки обновлений («владелец/имя»); GitHub подставляет его сам при сборке.
+        buildConfigField 'String', 'GITHUB_REPO', "\"${isTest ? '' : (System.getenv('GITHUB_REPOSITORY') ?: '')}\""
+        manifestPlaceholders = [appLabel: isTest ? 'PharmShop Test' : 'PharmShop']
+        // ядро Xray собрано под эти архитектуры; без фильтра APK раздувается x86-версиями
+        ndk { abiFilters 'arm64-v8a', 'armeabi-v7a' }
+        if (isTest) {
+            applicationIdSuffix '.test'
+            versionNameSuffix '-test'
+        }
+    }
+    // Ключ подписи ТОЛЬКО из переменных окружения (в GitHub Actions — из секретов, см. server/README.md → «Ключ подписи»).
+    // В репозитории ключа нет. Без переменных (локальная сборка) подписываем стандартным debug-ключом Android.
+    def ksFile = System.getenv('KEYSTORE_FILE')
+    signingConfigs {
+        if (ksFile) {
+            ci {
+                storeFile file(ksFile)
+                storePassword System.getenv('KEYSTORE_PASSWORD')
+                keyAlias System.getenv('KEY_ALIAS')
+                keyPassword System.getenv('KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        debug { signingConfig ksFile ? signingConfigs.ci : signingConfigs.debug }
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig ksFile ? signingConfigs.ci : signingConfigs.debug
+        }
+    }
+    // lintVital при assembleRelease тянет отдельные библиотеки (groovy и др.) и на сборщике GitHub не находит их.
+    // Для выпуска APK эта проверка не нужна.
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+    buildFeatures { buildConfig true }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions { jvmTarget = '17' }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.work:work-runtime:2.9.1'   // фоновые уведомления (PollWorker) и обновления по Wi-Fi (UpdateWorker)
+    implementation 'androidx.biometric:biometric:1.1.0'   // вход по отпечатку
+    implementation 'com.google.firebase:firebase-messaging:24.1.0'   // мгновенные push (FCM), если есть google-services.json
+    implementation 'com.github.hCaptcha.hcaptcha-android-sdk:sdk:5.0.0'
+    implementation fileTree(dir: 'libs', include: ['*.aar'])   // libv2ray.aar — ядро Xray (см. VpnCore.kt)
+}

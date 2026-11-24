@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_vpn_desc">Сколько дней и трафика осталось по подписке VPN</string>
+</resources>
